@@ -10,9 +10,9 @@ from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 import torch
 
-
 INPUT_SIZE = 28 * 28
 NUM_OF_EPOCHS = 10
+NUM_OF_CLASSES = 10
 
 
 class ModelA(nn.Module):
@@ -21,9 +21,13 @@ class ModelA(nn.Module):
     def __init__(self, input_size):
         super(ModelA, self).__init__()
         self.input_size = input_size
-        self.input_layer = nn.Linear(input_size, 100)
-        self.hidden_layer_1 = nn.Linear(100, 50)
-        self.hidden_layer_2 = nn.Linear(50, 10)
+        self.input_layer = nn.Sequential(nn.Linear(input_size, 100),
+                                         nn.ReLU())
+
+        self.hidden_layer_1 = nn.Sequential(nn.Linear(100, 50),
+                                            nn.ReLU())
+
+        self.hidden_layer_2 = nn.Linear(50, NUM_OF_CLASSES)
 
     def forward(self, x):
         x = x.view(-1, self.input_size)
@@ -39,18 +43,20 @@ class ModelB(nn.Module):
     def __init__(self, input_size):
         super(ModelB, self).__init__()
         self.input_size = input_size
-        self.input_layer = nn.Linear(input_size, 100)
-        self.hidden_layer_1 = nn.Linear(100, 50)
-        self.dropout_1 = nn.Dropout(self.DROPOUT_PROBABILITY)
-        self.hidden_layer_2 = nn.Linear(50, 10)
-        self.dropout_2 = nn.Dropout(self.DROPOUT_PROBABILITY)
+        self.input_layer = nn.Sequential(nn.Linear(input_size, 100),
+                                         nn.ReLU())
+
+        self.hidden_layer_1 = nn.Sequential(nn.Dropout(self.DROPOUT_PROBABILITY),
+                                            nn.Linear(100, 50),
+                                            nn.ReLU())
+
+        self.hidden_layer_2 = nn.Sequential(nn.Dropout(self.DROPOUT_PROBABILITY),
+                                            nn.Linear(50, NUM_OF_CLASSES))
 
     def forward(self, x):
         x = x.view(-1, self.input_size)
-        x = F.relu(self.input_layer(x))
-        x = self.dropout_1(x)
-        x = F.relu(self.hidden_layer_1(x))
-        x = self.dropout_2(x)
+        x = self.input_layer(x)
+        x = self.hidden_layer_1(x)
         return F.log_softmax(self.hidden_layer_2(x), dim=1)
 
 
@@ -60,17 +66,54 @@ class ModelC(nn.Module):
     def __init__(self, input_size):
         super(ModelC, self).__init__()
         self.input_size = input_size
-        self.input_layer = nn.Linear(input_size, 100)
-        self.batch_normalization_1 = nn.BatchNorm1d(100)
-        self.hidden_layer_1 = nn.Linear(100, 50)
-        self.batch_normalization_2 = nn.BatchNorm1d(50)
-        self.hidden_layer_2 = nn.Linear(50, 10)
+        self.input_layer = nn.Sequential(nn.Linear(input_size, 100),
+                                         nn.BatchNorm1d(100),
+                                         nn.ReLU())
+
+        self.hidden_layer_1 = nn.Sequential(nn.Linear(100, 50),
+                                            nn.BatchNorm1d(50),
+                                            nn.ReLU())
+
+        self.hidden_layer_2 = nn.Linear(50, NUM_OF_CLASSES)
 
     def forward(self, x):
         x = x.view(-1, self.input_size)
-        x = F.relu(self.batch_normalization_1(self.input_layer(x)))
-        x = F.relu(self.batch_normalization_2(self.hidden_layer_1(x)))
+        x = self.input_layer(x)
+        x = self.hidden_layer_1(x)
         return F.log_softmax(self.hidden_layer_2(x), dim=1)
+
+
+class ModelD(nn.Module):
+    BATCH_SIZE = 64
+    DROPOUT_PROBABILITY = 0.3
+
+    def __init__(self, input_size):
+        super(ModelD, self).__init__()
+        self.input_size = input_size
+        self.conv_layer_1 = nn.Sequential(nn.Conv2d(1, 16, kernel_size=5, stride=1, padding=2),
+                                          nn.BatchNorm2d(16),
+                                          nn.ReLU(),
+                                          nn.MaxPool2d(kernel_size=2, stride=2))
+
+        self.conv_layer_2 = nn.Sequential(nn.Conv2d(16, 32, kernel_size=5, stride=1, padding=2),
+                                          nn.BatchNorm2d(32),
+                                          nn.ReLU(),
+                                          nn.MaxPool2d(kernel_size=2, stride=2))
+
+        self.fc_layer_1 = nn.Sequential(nn.Dropout(self.DROPOUT_PROBABILITY),
+                                        nn.Linear(7 * 7 * 32, 100),
+                                        nn.BatchNorm1d(100),
+                                        nn.ReLU())
+
+        self.fc_layer_2 = nn.Sequential(nn.Dropout(self.DROPOUT_PROBABILITY),
+                                        nn.Linear(100, NUM_OF_CLASSES))
+
+    def forward(self, x):
+        x = self.conv_layer_1(x)
+        x = self.conv_layer_2(x)
+        x = x.view(x.shape[0], -1)
+        x = self.fc_layer_1(x)
+        return F.log_softmax(self.fc_layer_2(x), dim=1)
 
 
 def save_test_prediction(output_path, test_predictions):
@@ -86,15 +129,13 @@ def split_train_set(train_set, batch_size):
     validation_idx = np.random.choice(num_train, size=validation_slice_size, replace=False)
     train_idx = list(set(np.arange(num_train)) - set(validation_idx))
 
-    train_loader = torch.utils.data.DataLoader(
-        dataset=train_set,
-        batch_size=batch_size,
-        sampler=SubsetRandomSampler(train_idx))
+    train_loader = torch.utils.data.DataLoader(dataset=train_set,
+                                               batch_size=batch_size,
+                                               sampler=SubsetRandomSampler(train_idx))
 
-    validation_loader = torch.utils.data.DataLoader(
-        dataset=train_set,
-        batch_size=batch_size,
-        sampler=SubsetRandomSampler(validation_idx))
+    validation_loader = torch.utils.data.DataLoader(dataset=train_set,
+                                                    batch_size=batch_size,
+                                                    sampler=SubsetRandomSampler(validation_idx))
 
     return train_loader, validation_loader
 
@@ -153,6 +194,7 @@ def train(net, optimizer, train_loader, validation_loader):
 
 
 def test(net, test_loader):
+    predictions = []
     test_correct_count = 0
     test_loss = 0.0
     net.eval()
@@ -160,12 +202,15 @@ def test(net, test_loader):
         inputs, labels = data
         outputs = net(inputs)
         loss = F.nll_loss(outputs, labels)
+        predictions.extend(outputs.max(dim=1)[1].data.tolist())
         test_correct_count += outputs.max(dim=1)[1].eq(labels).sum()
 
         test_loss += loss.item()
 
     print "test average loss: %.3f" % (test_loss / len(train_loader.sampler))
     print "test accuracy: %.3f" % (float(test_correct_count) / len(test_loader.sampler))
+
+    save_test_prediction("test.pred", predictions)
 
 
 if __name__ == "__main__":
@@ -178,14 +223,13 @@ if __name__ == "__main__":
     train_set = dset.FashionMNIST(root=root, train=True, transform=trans, download=True)
     test_set = dset.FashionMNIST(root=root, train=False, transform=trans, download=True)
 
-    train_loader, validation_loader = split_train_set(train_set, batch_size=ModelB.BATCH_SIZE)
+    train_loader, validation_loader = split_train_set(train_set, batch_size=ModelA.BATCH_SIZE)
 
-    test_loader = torch.utils.data.DataLoader(
-        dataset=test_set,
-        batch_size=100,
-        shuffle=False)
+    test_loader = torch.utils.data.DataLoader(dataset=test_set,
+                                              batch_size=100,
+                                              shuffle=False)
 
-    net = ModelB(INPUT_SIZE)
+    net = ModelD(INPUT_SIZE)
 
     optimizer = optim.Adam(net.parameters())
 
