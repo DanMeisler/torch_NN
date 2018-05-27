@@ -183,11 +183,15 @@ def train(net, optimizer, train_loader, validation_loader):
 
             validation_loss += loss.item()
 
-        train_average_loss_per_epoch.append(train_loss / len(train_loader.sampler))
-        validation_average_loss_per_epoch.append(validation_loss / len(validation_loader.sampler))
-        print "[%d] train accuracy: %.3f" % (epoch + 1, float(train_correct_count) / len(train_loader.sampler))
-        print "[%d] validation accuracy: %.3f" % (epoch + 1,
-                                                  float(validation_correct_count) / len(validation_loader.sampler))
+        train_average_loss = train_loss / len(train_loader.sampler)
+        validation_average_loss = validation_loss / len(validation_loader.sampler)
+
+        train_average_loss_per_epoch.append(train_average_loss)
+        validation_average_loss_per_epoch.append(validation_average_loss)
+        print "[%d train] accuracy: %.3f, average loss: %.3f" % \
+              (epoch + 1, float(train_correct_count) / len(train_loader.sampler), train_average_loss)
+        print "[%d validation] accuracy: %.3f, average loss: %.3f" % \
+              (epoch + 1, float(validation_correct_count) / len(validation_loader.sampler), validation_average_loss)
 
     plot_average_loss(train_average_loss_per_epoch, validation_average_loss_per_epoch)
     print "Finished Training"
@@ -207,8 +211,8 @@ def test(net, test_loader):
 
         test_loss += loss.item()
 
-    print "test average loss: %.3f" % (test_loss / len(train_loader.sampler))
-    print "test accuracy: %.3f" % (float(test_correct_count) / len(test_loader.sampler))
+    print "[test] accuracy: %.3f, average loss: %.3f" % (float(test_correct_count) / len(test_loader.dataset),
+                                                         test_loss / len(test_loader.dataset))
 
     save_test_prediction("test.pred", predictions)
 
@@ -223,12 +227,11 @@ if __name__ == "__main__":
     train_set = dset.FashionMNIST(root=root, train=True, transform=trans, download=True)
     test_set = dset.FashionMNIST(root=root, train=False, transform=trans, download=True)
 
-    train_loader, validation_loader = split_train_set(train_set, batch_size=ModelA.BATCH_SIZE)
+    train_loader, validation_loader = split_train_set(train_set, batch_size=ModelD.BATCH_SIZE)
 
     test_loader = torch.utils.data.DataLoader(dataset=test_set,
-                                              batch_size=100,
+                                              batch_size=64,
                                               shuffle=False)
-
     net = ModelD(INPUT_SIZE)
 
     optimizer = optim.Adam(net.parameters())
