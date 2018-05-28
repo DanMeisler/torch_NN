@@ -165,7 +165,7 @@ def train(net, optimizer, train_loader, validation_loader):
             optimizer.zero_grad()
 
             outputs = net(inputs)
-            loss = F.nll_loss(outputs, labels)
+            loss = F.nll_loss(outputs, labels, size_average=False)
             train_correct_count += outputs.max(dim=1)[1].eq(labels).sum()
             loss.backward()
             optimizer.step()
@@ -178,7 +178,7 @@ def train(net, optimizer, train_loader, validation_loader):
         for data in validation_loader:
             inputs, labels = data
             outputs = net(inputs)
-            loss = F.nll_loss(outputs, labels)
+            loss = F.nll_loss(outputs, labels, size_average=False)
             validation_correct_count += outputs.max(dim=1)[1].eq(labels).sum()
 
             validation_loss += loss.item()
@@ -205,7 +205,7 @@ def test(net, test_loader):
     for data in test_loader:
         inputs, labels = data
         outputs = net(inputs)
-        loss = F.nll_loss(outputs, labels)
+        loss = F.nll_loss(outputs, labels, size_average=False)
         predictions.extend(outputs.max(dim=1)[1].data.tolist())
         test_correct_count += outputs.max(dim=1)[1].eq(labels).sum()
 
